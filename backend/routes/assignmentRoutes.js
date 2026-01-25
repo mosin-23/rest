@@ -3,10 +3,11 @@ const router = express.Router();
 
 const {
   createAssignment,
-  submitAssignment
+  submitAssignment,
+  getAllAssignmentsWithSubmissions
 } = require("../Controller/assignmentController");
 
 router.post("/", createAssignment);                       // create assignment
-router.post("/:assignmentId/submit", submitAssignment);  // submit assignment
-
+router.post("/submit", submitAssignment);  // submit assignment
+router.get("/submissions", getAllAssignmentsWithSubmissions);
 module.exports = router;

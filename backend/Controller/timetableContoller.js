@@ -54,9 +54,9 @@ exports.getCourseTimetable = async (req, res) => {
   try {
     const { courseCode } = req.params;
     const timetables = await Timetable.find({ courseCode })
-      .populate("course")
-      .populate("teacher")
-      .sort({ day: 1, startTime: 1 });
+      .populate("course", "courseName courseCode students")
+      .populate("teacher", "empId name")
+      .sort({ day: 1, startTime: 1 });  
     
     if (timetables.length === 0) {
       return res.status(404).json({ error: "No timetable found for this course" });
@@ -78,8 +78,8 @@ exports.getTimetableByDay = async (req, res) => {
     }
 
     const timetables = await Timetable.find({ day })
-      .populate("course")
-      .populate("teacher")
+      .populate("course", "courseName courseCode students")
+      .populate("teacher", "empId name")
       .sort({ startTime: 1 });
     
     res.json(timetables);

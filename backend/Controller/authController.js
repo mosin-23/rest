@@ -2,11 +2,10 @@ const bcrypt = require("bcryptjs");
 const Student = require("../models/student");
 const Teacher = require("../models/teacher");
 const generateRollNo = require("../utils/generateRollNo");
-
 /* ================= REGISTER STUDENT ================= */
 exports.registerStudent = async (req, res) => {
   try {
-    const { name, email, password, department, currentYear } = req.body;
+    const { name, email, password, department, currentYear, address } = req.body;
 
     // Validate required fields
     if (!name || !email || !password || !department || !currentYear) {
@@ -25,14 +24,15 @@ exports.registerStudent = async (req, res) => {
     // Auto-generate roll number
     const rollNo = await generateRollNo(currentYear);
 
-    // Create student
+    // Create student (address is optional)
     const student = await Student.create({
       rollNo,
       name,
       email,
       password: hashedPassword,
       department,
-      currentYear
+      currentYear,
+      address   // 👈 added safely
     });
 
     res.status(201).json({
@@ -43,7 +43,8 @@ exports.registerStudent = async (req, res) => {
         rollNo: student.rollNo,
         name: student.name,
         email: student.email,
-        department: student.department
+        department: student.department,
+        address: student.address || null
       }
     });
 
@@ -51,6 +52,7 @@ exports.registerStudent = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 /* ================= LOGIN ================= */
 exports.loginStudent = async (req, res) => {
