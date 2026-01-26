@@ -129,15 +129,20 @@ exports.submitAssignment = async (req, res) => {
 
     console.log("✅ Course found:", course._id);
 
-    // Find the most recent ACTIVE assignment for this course
-    const assignment = await Assignment.findOne({ course: course._id })
-      .sort({ createdAt: -1 })
-      .limit(1);
-      
-    if (!assignment) {
-      console.error(`❌ Assignment Error: No assignment found for course ${courseCode}`);
-      return res.status(404).json({ error: `No assignment found for course ${courseCode}` });
-    }
+    // If assignmentId is provided, use it directly; otherwise fall back to finding by course
+let assignment;
+if (req.body.assignmentId) {
+  assignment = await Assignment.findById(req.body.assignmentId);
+} else {
+  assignment = await Assignment.findOne({ course: course._id })
+    .sort({ createdAt: -1 })
+    .limit(1);
+}
+
+if (!assignment) {
+  console.error(`❌ Assignment Error: No assignment found`);
+  return res.status(404).json({ error: `Assignment not found` });
+}
 
     console.log("✅ Assignment found:", assignment._id);
 
