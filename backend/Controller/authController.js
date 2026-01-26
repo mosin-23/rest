@@ -89,3 +89,40 @@ exports.loginStudent = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+/* ================= LOGIN TEACHER ================= */
+exports.loginTeacher = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate
+    if (!email || !password) {
+      return res.status(400).json({ message: "Missing credentials" });
+    }
+
+    // Find teacher
+    const teacher = await Teacher.findOne({ email });
+    if (!teacher) {
+      return res.status(401).json({ message: "Invalid email" });
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, teacher.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    // Remove sensitive fields
+    const teacherData = teacher.toObject();
+    delete teacherData.password;
+
+    res.status(200).json({
+      message: "Login successful",
+      role: "teacher",
+      user: teacherData
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
