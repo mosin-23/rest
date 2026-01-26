@@ -116,6 +116,31 @@ exports.enrollStudent = async (req, res) => {
   }
 };
 
+exports.getCoursesByStudent = async (req, res) => {
+  try {
+    const { id } = req.params; // rollNo
+
+    const student = await Student.findOne({ rollNo: id })
+      .populate("courses", "courseName courseCode credits department");
+
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found"
+      });
+    }
+
+    res.status(200).json({
+      rollNo: student.rollNo,
+      name: student.name,
+      totalCourses: student.courses.length,
+      courses: student.courses
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 /* ================= ENROLL ALL STUDENTS OF A YEAR ================= */
 exports.enrollStudentsByYear = async (req, res) => {
   try {
