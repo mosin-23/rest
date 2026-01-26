@@ -36,8 +36,7 @@ exports.createAssignment = async (req, res) => {
   }
 };
 
-/* ================= GET ALL ASSIGNMENTS FOR STUDENT ================= */
-/* ================= GET ALL ASSIGNMENTS FOR STUDENT (MINIMAL RESPONSE) ================= */
+/* ================= GET ALL ASSIGNMENTS FOR STUDENT (WITH FULL DATA) ================= */
 exports.getAssignmentsByStudentRollNo = async (req, res) => {
   try {
     const rollNo = req.params.id;
@@ -57,19 +56,41 @@ exports.getAssignmentsByStudentRollNo = async (req, res) => {
       });
     }
 
-    // 3️⃣ Find assignments for student's courses
+    // 3️⃣ Find assignments for student's courses with full course data
     const assignments = await Assignment.find({
       course: { $in: student.courses }
     })
-      .select("title description dueDate teacher") // 👈 only needed fields
-      .populate("teacher", "name"); // 👈 only teacher name
+      .populate("course", "courseName courseCode") // Include course details
+      .populate("teacher", "name")
+      .populate("submissions.student", "name rollNo");
 
-    // 4️⃣ Shape response
+    // 4️⃣ Shape response to match frontend expectations
     const formattedAssignments = assignments.map(a => ({
+      _id: a._id,
+      id: a._id.toString(),
       title: a.title,
       description: a.description,
       dueDate: a.dueDate,
-      assignedBy: a.teacher?.name || "Unknown"
+      course: {
+        _id: a.course._id,
+        courseName: a.course.courseName,
+        courseCode: a.course.courseCode,
+        name: a.course.courseName,
+        code: a.course.courseCode
+      },
+      teacher: {
+        _id: a.teacher._id,
+        name: a.teacher.name
+      },
+      submissions: a.submissions.map(sub => ({
+        _id: sub._id,
+        student: sub.student,
+        submittedAt: sub.submittedAt,
+        fileUrl: sub.fileUrl,
+        file: sub.fileUrl,
+        fileName: sub.fileUrl
+      })),
+      submissionFiles: a.submissions.map(s => s.fileUrl).filter(Boolean)
     }));
 
     res.status(200).json({
@@ -89,53 +110,147 @@ exports.submitAssignment = async (req, res) => {
   try {
     const { courseCode, rollNo, fileUrl } = req.body;
 
+    console.log("📝 Submit Assignment Request:", { courseCode, rollNo, fileUrl });
+
+    // Validate required fields
+    if (!courseCode || !rollNo || !fileUrl) {
+      console.error("❌ Validation Error: Missing fields");
+      return res.status(400).json({ 
+        error: "Missing required fields: courseCode, rollNo, and fileUrl are required" 
+      });
+    }
+
     // Find course by courseCode
     const course = await Course.findOne({ courseCode });
     if (!course) {
-      return res.status(404).json({ error: "Course not found" });
+      console.error(`❌ Course Error: Course with code ${courseCode} not found`);
+      return res.status(404).json({ error: `Course with code ${courseCode} not found` });
     }
 
-    // Find assignment for this course
-    const assignment = await Assignment.findOne({ course: course._id });
+    console.log("✅ Course found:", course._id);
+
+    // Find the most recent ACTIVE assignment for this course
+    const assignment = await Assignment.findOne({ course: course._id })
+      .sort({ createdAt: -1 })
+      .limit(1);
+      
     if (!assignment) {
-      return res.status(404).json({ error: "Assignment not found for this course" });
+      console.error(`❌ Assignment Error: No assignment found for course ${courseCode}`);
+      return res.status(404).json({ error: `No assignment found for course ${courseCode}` });
     }
+
+    console.log("✅ Assignment found:", assignment._id);
 
     // Find student by rollNo
     const student = await Student.findOne({ rollNo });
     if (!student) {
-      return res.status(404).json({ error: "Student not found" });
+      console.error(`❌ Student Error: Student with roll number ${rollNo} not found`);
+      return res.status(404).json({ error: `Student with roll number ${rollNo} not found` });
     }
+
+    console.log("✅ Student found:", student._id);
 
     // Check if student is registered in the course
-    if (!course.students.includes(student._id)) {
-      return res.status(403).json({ error: "Student is not registered for this course" });
+    if (!course.students || !course.students.includes(student._id)) {
+      console.error(`❌ Enrollment Error: Student ${rollNo} not registered for course ${courseCode}`);
+      return res.status(403).json({ error: `Student is not registered for course ${courseCode}` });
     }
 
-    // Prevent duplicate submission
-    const alreadySubmitted = assignment.submissions.some(
+    console.log("✅ Student is enrolled in course");
+
+    // Check if student already submitted
+    const existingSubmissionIndex = assignment.submissions.findIndex(
       sub => sub.student.toString() === student._id.toString()
     );
 
-    if (alreadySubmitted) {
-      return res.status(400).json({ error: "Assignment already submitted" });
+    if (existingSubmissionIndex !== -1) {
+      console.log("📝 Updating existing submission...");
+      // Update existing submission
+      assignment.submissions[existingSubmissionIndex] = {
+        student: student._id,
+        submittedAt: new Date(),
+        fileUrl
+      };
+    } else {
+      console.log("📝 Adding new submission...");
+      // Add new submission
+      assignment.submissions.push({
+        student: student._id,
+        submittedAt: new Date(),
+        fileUrl
+      });
     }
-
-    // Submit assignment
-    assignment.submissions.push({
-      student: student._id,
-      submittedAt: new Date(),
-      fileUrl
-    });
 
     await assignment.save();
 
-    res.json({ message: "Assignment submitted successfully" });
+    console.log("✅ Assignment saved successfully");
+
+    res.status(200).json({ 
+      message: "Assignment submitted successfully",
+      success: true,
+      submission: {
+        assignmentId: assignment._id,
+        assignmentTitle: assignment.title,
+        courseCode,
+        rollNo,
+        fileUrl,
+        submittedAt: new Date()
+      }
+    });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("❌ Submit Assignment Error:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 };
 
+
+/* ================= GET ASSIGNMENT BY ID WITH FULL DATA ================= */
+exports.getAssignmentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const assignment = await Assignment.findById(id)
+      .populate("course", "courseName courseCode")
+      .populate("teacher", "name empId")
+      .populate("submissions.student", "name rollNo");
+
+    if (!assignment) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+
+    const formattedAssignment = {
+      _id: assignment._id,
+      id: assignment._id.toString(),
+      title: assignment.title,
+      description: assignment.description,
+      dueDate: assignment.dueDate,
+      course: {
+        _id: assignment.course._id,
+        courseName: assignment.course.courseName,
+        courseCode: assignment.course.courseCode,
+        name: assignment.course.courseName,
+        code: assignment.course.courseCode
+      },
+      teacher: {
+        _id: assignment.teacher._id,
+        name: assignment.teacher.name
+      },
+      submissions: assignment.submissions.map(sub => ({
+        _id: sub._id,
+        student: sub.student,
+        submittedAt: sub.submittedAt,
+        fileUrl: sub.fileUrl,
+        file: sub.fileUrl,
+        fileName: sub.fileUrl
+      })),
+      submissionFiles: assignment.submissions.map(s => s.fileUrl).filter(Boolean)
+    };
+
+    res.status(200).json(formattedAssignment);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 /* ================= GET ASSIGNMENTS WITH SUBMISSIONS ================= */
 exports.getAllAssignmentsWithSubmissions = async (req, res) => {

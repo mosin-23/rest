@@ -84,11 +84,22 @@ exports.enrollStudent = async (req, res) => {
     }
 
     // Check if student's year matches course's year
-    if (student.currentYear !== course.year) {
-      return res.status(400).json({ 
-        message: `Year mismatch! Student is in Year ${student.currentYear} but this course is for Year ${course.year} students only` 
-      });
-    }
+   // ✅ FIX 1: Year comparison (number-safe)
+if (Number(student.currentYear) !== Number(course.year)) {
+  return res.status(400).json({ 
+    message: `Year mismatch! Student is in Year ${student.currentYear} but this course is for Year ${course.year} students only`
+  });
+}
+
+// ✅ FIX 2: Safe ObjectId comparison
+const alreadyEnrolled = course.students.some(
+  s => s.toString() === student._id.toString()
+);
+
+if (alreadyEnrolled) {
+  return res.status(400).json({ message: "Student is already enrolled in this course" });
+}
+
 
     // Check if student already enrolled
     if (course.students.includes(student._id)) {

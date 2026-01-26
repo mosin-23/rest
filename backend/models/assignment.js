@@ -11,6 +11,6 @@ const assignmentSchema = new mongoose.Schema({
     submittedAt: Date,
     fileUrl: String
   }]
-});
+}, { timestamps: true }); // Enable createdAt and updatedAt
 
 module.exports = mongoose.model("Assignment", assignmentSchema);
