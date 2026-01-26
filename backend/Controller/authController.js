@@ -53,7 +53,6 @@ exports.registerStudent = async (req, res) => {
   }
 };
 
-
 /* ================= LOGIN ================= */
 exports.loginStudent = async (req, res) => {
   try {
@@ -63,6 +62,7 @@ exports.loginStudent = async (req, res) => {
       return res.status(400).json({ message: "Missing credentials" });
     }
 
+    // Choose model based on role
     const Model = role === "student" ? Student : Teacher;
 
     const user = await Model.findOne({ email });
@@ -75,10 +75,14 @@ exports.loginStudent = async (req, res) => {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    res.json({
+    // Convert mongoose doc → plain object
+    const userData = user.toObject();
+    delete userData.password; // 🔒 remove sensitive data
+
+    res.status(200).json({
       message: "Login successful",
       role,
-      userId: user._id
+      user: userData
     });
 
   } catch (error) {
