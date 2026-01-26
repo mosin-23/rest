@@ -185,18 +185,27 @@ exports.submitAssignment = async (req, res) => {
 
     console.log("✅ Assignment saved successfully");
 
+    // 🔧 RELOAD the assignment to get fresh data with populated submissions
+    const updatedAssignment = await Assignment.findById(assignment._id)
+      .populate("course", "courseName courseCode")
+      .populate("teacher", "name")
+      .populate("submissions.student", "name rollNo");
+
+    console.log("✅ Updated assignment submissions:", updatedAssignment.submissions.length);
+
     res.status(200).json({ 
       message: "Assignment submitted successfully",
       success: true,
       submission: {
-        assignmentId: assignment._id,
-        assignmentTitle: assignment.title,
+        assignmentId: updatedAssignment._id,
+        assignmentTitle: updatedAssignment.title,
         courseCode,
         rollNo,
         fileUrl,
         submittedAt: new Date()
       }
     });
+    
   } catch (error) {
     console.error("❌ Submit Assignment Error:", error);
     res.status(500).json({ error: error.message || "Internal server error" });
