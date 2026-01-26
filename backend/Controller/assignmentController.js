@@ -36,6 +36,53 @@ exports.createAssignment = async (req, res) => {
   }
 };
 
+/* ================= GET ALL ASSIGNMENTS FOR STUDENT ================= */
+/* ================= GET ALL ASSIGNMENTS FOR STUDENT (MINIMAL RESPONSE) ================= */
+exports.getAssignmentsByStudentRollNo = async (req, res) => {
+  try {
+    const rollNo = req.params.id;
+
+    // 1️⃣ Find student by rollNo
+    const student = await Student.findOne({ rollNo });
+    if (!student) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    // 2️⃣ If student has no courses
+    if (!student.courses || student.courses.length === 0) {
+      return res.status(200).json({
+        rollNo,
+        totalAssignments: 0,
+        assignments: []
+      });
+    }
+
+    // 3️⃣ Find assignments for student's courses
+    const assignments = await Assignment.find({
+      course: { $in: student.courses }
+    })
+      .select("title description dueDate teacher") // 👈 only needed fields
+      .populate("teacher", "name"); // 👈 only teacher name
+
+    // 4️⃣ Shape response
+    const formattedAssignments = assignments.map(a => ({
+      title: a.title,
+      description: a.description,
+      dueDate: a.dueDate,
+      assignedBy: a.teacher?.name || "Unknown"
+    }));
+
+    res.status(200).json({
+      rollNo,
+      totalAssignments: formattedAssignments.length,
+      assignments: formattedAssignments
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 
 /* ================= SUBMIT ASSIGNMENT (USING COURSE CODE) ================= */
 exports.submitAssignment = async (req, res) => {
