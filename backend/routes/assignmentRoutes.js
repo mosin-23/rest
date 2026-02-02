@@ -11,8 +11,8 @@ const {
 
 router.post("/", createAssignment);                       // create assignment
 router.post("/submit", submitAssignment);                 // submit assignment
+router.get("/submissions", getAllAssignmentsWithSubmissions); // get all with submissions
 router.get("/student/:id", getAssignmentsByStudentRollNo); // get assignments for student
 router.get("/:id", getAssignmentById);                    // get single assignment by ID
-router.get("/submissions", getAllAssignmentsWithSubmissions); // get all with submissions
 
 module.exports = router;

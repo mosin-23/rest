@@ -39,6 +39,7 @@ app.use("/api/exams", require("./routes/examRoutes"));
 app.use("/api/timetable", require("./routes/timetableRoutes"));
 app.use("/api/tickets", require("./routes/ticketRoutes"));
 app.use("/api/events", require("./routes/eventRoutes"));
+app.use("/api/leaves", require("./routes/leaveRoutes"));
 
 /* ================= SERVER ================= */
 const PORT = process.env.PORT || 5000;

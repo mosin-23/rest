@@ -256,10 +256,23 @@ exports.getAssignmentById = async (req, res) => {
 exports.getAllAssignmentsWithSubmissions = async (req, res) => {
   try {
     const assignments = await Assignment.find()
-      .populate("course")
-      .populate("submissions.student", "name rollNo");
+      .populate("submissions.student", "rollNo");
 
-    res.json(assignments);
+    // Format response to only include required fields
+    const formattedData = [];
+    
+    assignments.forEach(assignment => {
+      assignment.submissions.forEach(submission => {
+        formattedData.push({
+          assignmentId: assignment._id,
+          assignmentName: assignment.title,
+          studentRollNo: submission.student?.rollNo,
+          fileUrl: submission.fileUrl
+        });
+      });
+    });
+
+    res.json(formattedData);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
