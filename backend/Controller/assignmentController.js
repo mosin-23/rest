@@ -88,7 +88,11 @@ exports.getAssignmentsByStudentRollNo = async (req, res) => {
         submittedAt: sub.submittedAt,
         fileUrl: sub.fileUrl,
         file: sub.fileUrl,
-        fileName: sub.fileUrl
+        fileName: sub.fileUrl,
+        marks: sub.marks ?? null,
+        feedback: sub.feedback || "",
+        gradedAt: sub.gradedAt || null,
+        gradedBy: sub.gradedBy || null
       })),
       submissionFiles: a.submissions.map(s => s.fileUrl).filter(Boolean)
     }));
@@ -255,7 +259,11 @@ exports.getAssignmentById = async (req, res) => {
         submittedAt: sub.submittedAt,
         fileUrl: sub.fileUrl,
         file: sub.fileUrl,
-        fileName: sub.fileUrl
+        fileName: sub.fileUrl,
+        marks: sub.marks ?? null,
+        feedback: sub.feedback || "",
+        gradedAt: sub.gradedAt || null,
+        gradedBy: sub.gradedBy || null
       })),
       submissionFiles: assignment.submissions.map(s => s.fileUrl).filter(Boolean)
     };
@@ -280,13 +288,133 @@ exports.getAllAssignmentsWithSubmissions = async (req, res) => {
         formattedData.push({
           assignmentId: assignment._id,
           assignmentName: assignment.title,
+          submissionId: submission._id,
           studentRollNo: submission.student?.rollNo,
-          fileUrl: submission.fileUrl
+          fileUrl: submission.fileUrl,
+          submittedAt: submission.submittedAt,
+          marks: submission.marks ?? null,
+          feedback: submission.feedback || "",
+          gradedAt: submission.gradedAt || null
         });
       });
     });
 
     res.json(formattedData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ================= GET ALL SUBMISSIONS FOR A TEACHER ================= */
+exports.getSubmissionsByTeacherEmpId = async (req, res) => {
+  try {
+    const { empId } = req.params;
+
+    const teacher = await Teacher.findOne({ empId });
+    if (!teacher) {
+      return res.status(404).json({ error: "Teacher not found" });
+    }
+
+    const assignments = await Assignment.find({ teacher: teacher._id })
+      .populate("course", "courseName courseCode")
+      .populate("submissions.student", "name rollNo");
+
+    const submissions = [];
+    assignments.forEach((assignment) => {
+      assignment.submissions.forEach((submission) => {
+        submissions.push({
+          submissionId: submission._id,
+          assignmentId: assignment._id,
+          assignmentTitle: assignment.title,
+          course: assignment.course ? {
+            _id: assignment.course._id,
+            courseName: assignment.course.courseName,
+            courseCode: assignment.course.courseCode
+          } : null,
+          student: submission.student,
+          studentName: submission.student?.name || "",
+          studentRollNo: submission.student?.rollNo || "",
+          submittedAt: submission.submittedAt,
+          fileUrl: submission.fileUrl,
+          marks: submission.marks ?? null,
+          feedback: submission.feedback || "",
+          gradedAt: submission.gradedAt || null
+        });
+      });
+    });
+
+    res.status(200).json({
+      teacherEmpId: empId,
+      totalSubmissions: submissions.length,
+      submissions
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ================= GRADE A SUBMISSION ================= */
+exports.gradeSubmission = async (req, res) => {
+  try {
+    const { assignmentId, submissionId } = req.params;
+    const { marks, feedback, teacherEmpId } = req.body;
+
+    if (!teacherEmpId) {
+      return res.status(400).json({ error: "Teacher employee ID is required" });
+    }
+
+    const teacher = await Teacher.findOne({ empId: teacherEmpId });
+    if (!teacher) {
+      return res.status(404).json({ error: "Teacher not found" });
+    }
+
+    const assignment = await Assignment.findOne({ _id: assignmentId, teacher: teacher._id })
+      .populate("course", "courseName courseCode")
+      .populate("submissions.student", "name rollNo");
+
+    if (!assignment) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+
+    const submission = assignment.submissions.id(submissionId);
+    if (!submission) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    let parsedMarks = null;
+    if (marks !== undefined && marks !== null && String(marks).trim() !== "") {
+      parsedMarks = Number(marks);
+      if (Number.isNaN(parsedMarks)) {
+        return res.status(400).json({ error: "Marks must be a valid number" });
+      }
+    }
+
+    submission.marks = parsedMarks;
+    submission.feedback = feedback || "";
+    submission.gradedAt = new Date();
+    submission.gradedBy = teacher._id;
+
+    await assignment.save();
+
+    res.status(200).json({
+      message: "Submission graded successfully",
+      submission: {
+        submissionId: submission._id,
+        assignmentId: assignment._id,
+        assignmentTitle: assignment.title,
+        course: assignment.course ? {
+          _id: assignment.course._id,
+          courseName: assignment.course.courseName,
+          courseCode: assignment.course.courseCode
+        } : null,
+        student: submission.student,
+        submittedAt: submission.submittedAt,
+        fileUrl: submission.fileUrl,
+        marks: submission.marks ?? null,
+        feedback: submission.feedback || "",
+        gradedAt: submission.gradedAt
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

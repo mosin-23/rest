@@ -9,7 +9,11 @@ const assignmentSchema = new mongoose.Schema({
   submissions: [{
     student: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
     submittedAt: Date,
-    fileUrl: String
+    fileUrl: String,
+    marks: { type: Number, default: null },
+    feedback: { type: String, default: "" },
+    gradedAt: { type: Date, default: null },
+    gradedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", default: null }
   }]
 }, { timestamps: true }); // Enable createdAt and updatedAt
 
